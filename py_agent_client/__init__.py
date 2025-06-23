@@ -1,8 +1,8 @@
 """
 py-agent-client: Intelligent AI API routing with automatic cost optimization
 
-This package provides intelligent routing between multiple AI providers (OpenAI, 
-Anthropic, DeepSeek) with automatic cost optimization, quality assurance, and 
+This package provides intelligent routing between multiple AI providers (OpenAI,
+Anthropic, DeepSeek) with automatic cost optimization, quality assurance, and
 comprehensive analytics.
 
 Basic Usage:
@@ -22,16 +22,16 @@ Key Features:
 """
 
 from py_agent_client.client import Agent
-from py_agent_client.models import RouteRequest, RouteResponse
-from py_agent_client.core.cost_guardian import CostGuardian, BudgetExceededError
 from py_agent_client.core.context_manager import ContextManager
+from py_agent_client.core.cost_guardian import BudgetExceededError, CostGuardian
 from py_agent_client.core.telemetry import TelemetryCollector
 from py_agent_client.exceptions import (
-    PyAgentError,
     ProviderError,
-    RoutingError,
+    PyAgentError,
     QualityThresholdError,
+    RoutingError,
 )
+from py_agent_client.models import RouteRequest, RouteResponse
 
 __version__ = "0.1.0"
 __author__ = "py-agent Team"
@@ -44,21 +44,18 @@ __description__ = "Intelligent AI API routing with automatic cost optimization"
 __all__ = [
     # Core classes
     "Agent",
-    "CostGuardian", 
+    "CostGuardian",
     "ContextManager",
     "TelemetryCollector",
-    
     # Data models
     "RouteRequest",
     "RouteResponse",
-    
     # Exceptions
     "PyAgentError",
-    "ProviderError", 
+    "ProviderError",
     "RoutingError",
     "QualityThresholdError",
     "BudgetExceededError",
-    
     # Metadata
     "__version__",
     "__author__",
@@ -91,7 +88,7 @@ DEFAULT_CONFIG = {
             "max_tokens": 4096,
         },
         "anthropic": {
-            "enabled": True, 
+            "enabled": True,
             "models": ["claude-3-sonnet", "claude-3-opus"],
             "max_tokens": 4096,
         },
@@ -108,21 +105,24 @@ DEFAULT_CONFIG = {
     },
 }
 
+
 def get_version() -> str:
     """Get the package version."""
     return __version__
+
 
 def get_version_info() -> tuple:
     """Get version information as a tuple."""
     return VERSION_INFO
 
+
 def configure(config: dict = None) -> None:
     """
     Configure global settings for py-agent-client.
-    
+
     Args:
         config: Configuration dictionary to override defaults
-        
+
     Example:
         >>> import py_agent_client
         >>> py_agent_client.configure({
@@ -134,6 +134,7 @@ def configure(config: dict = None) -> None:
         # Deep merge configuration
         # Implementation would go here
         pass
+
 
 # Package-level logging configuration
 import logging
