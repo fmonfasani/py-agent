@@ -1,12 +1,13 @@
 """Main Agent class for py-agent-client"""
 
-from typing import Optional, Dict, Any
-from py_agent_client.core.cost_guardian import CostGuardian
-from py_agent_client.core.context_manager import ContextManager
-from py_agent_client.core.telemetry import TelemetryCollector
-from py_agent_client.core.router import Router
-import uuid
 import time
+import uuid
+from typing import Any, Dict, Optional
+
+from py_agent_client.core.context_manager import ContextManager
+from py_agent_client.core.cost_guardian import CostGuardian
+from py_agent_client.core.router import Router
+from py_agent_client.core.telemetry import TelemetryCollector
 
 
 class Agent:
