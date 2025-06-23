@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 from py_agent_client.core.context_manager import ContextManager
 from py_agent_client.core.cost_guardian import CostGuardian
 from py_agent_client.core.router import Router
-from py_agent_client.core.telemetry import Telemetry  # antes TelemetryCollector
+from py_agent_client.core.telemetry import TelemetryCollector as Telemetry
 from py_agent_client.models import RouteRequest, RouteResponse
 
 
