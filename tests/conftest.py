@@ -2,11 +2,13 @@
 Test configuration and fixtures for py-agent-client
 """
 
+from unittest.mock import AsyncMock, Mock
+
 import pytest
-from unittest.mock import Mock, AsyncMock
+
 from py_agent_client import Agent
-from py_agent_client.core.cost_guardian import CostGuardian
 from py_agent_client.core.context_manager import ContextManager
+from py_agent_client.core.cost_guardian import CostGuardian
 from py_agent_client.core.telemetry import TelemetryCollector
 
 
@@ -16,7 +18,7 @@ def mock_api_keys():
     return {
         "openai": "sk-test-openai-key",
         "anthropic": "sk-ant-test-key",
-        "deepseek": "sk-test-deepseek-key"
+        "deepseek": "sk-test-deepseek-key",
     }
 
 
@@ -58,16 +60,12 @@ def mock_openai_response():
                 "index": 0,
                 "message": {
                     "role": "assistant",
-                    "content": "This is a test response from OpenAI."
+                    "content": "This is a test response from OpenAI.",
                 },
-                "finish_reason": "stop"
+                "finish_reason": "stop",
             }
         ],
-        "usage": {
-            "prompt_tokens": 20,
-            "completion_tokens": 15,
-            "total_tokens": 35
-        }
+        "usage": {"prompt_tokens": 20, "completion_tokens": 15, "total_tokens": 35},
     }
 
 
@@ -79,18 +77,12 @@ def mock_anthropic_response():
         "type": "message",
         "role": "assistant",
         "content": [
-            {
-                "type": "text",
-                "text": "This is a test response from Anthropic."
-            }
+            {"type": "text", "text": "This is a test response from Anthropic."}
         ],
         "model": "claude-3-sonnet-20240229",
         "stop_reason": "end_turn",
         "stop_sequence": None,
-        "usage": {
-            "input_tokens": 20,
-            "output_tokens": 15
-        }
+        "usage": {"input_tokens": 20, "output_tokens": 15},
     }
 
 
@@ -102,7 +94,7 @@ def sample_routing_request():
         "context": {"data": [1, 2, 3, 4, 5]},
         "optimize_for": "cost",
         "max_cost": 0.05,
-        "quality_threshold": 0.7
+        "quality_threshold": 0.7,
     }
 
 
@@ -116,9 +108,10 @@ def mock_httpx_client():
 @pytest.fixture(autouse=True)
 def disable_real_api_calls(monkeypatch):
     """Automatically disable real API calls in tests"""
+
     def mock_httpx_post(*args, **kwargs):
         raise RuntimeError("Real API calls are disabled in tests")
-    
+
     monkeypatch.setattr("httpx.AsyncClient.post", mock_httpx_post)
 
 
@@ -129,21 +122,21 @@ def example_prompts():
         {
             "prompt": "What is the capital of France?",
             "expected_category": "simple_qa",
-            "expected_cost_tier": "low"
+            "expected_cost_tier": "low",
         },
         {
             "prompt": "Write a comprehensive analysis of machine learning trends in 2024",
             "expected_category": "analysis",
-            "expected_cost_tier": "medium"
+            "expected_cost_tier": "medium",
         },
         {
             "prompt": "Generate a Python function to implement a binary search tree",
-            "expected_category": "code_generation", 
-            "expected_cost_tier": "medium"
+            "expected_category": "code_generation",
+            "expected_cost_tier": "medium",
         },
         {
             "prompt": "Write a creative short story about time travel",
             "expected_category": "creative",
-            "expected_cost_tier": "high"
-        }
+            "expected_cost_tier": "high",
+        },
     ]
