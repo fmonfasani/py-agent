@@ -1,13 +1,12 @@
 """Main Agent class for py-agent-client"""
 
-import time
-import uuid
-from typing import Any, Dict, Optional
-
-from py_agent_client.core.context_manager import ContextManager
+from typing import Optional, Dict, Any
 from py_agent_client.core.cost_guardian import CostGuardian
-from py_agent_client.core.router import Router
+from py_agent_client.core.context_manager import ContextManager
 from py_agent_client.core.telemetry import TelemetryCollector
+from py_agent_client.core.router import Router
+import uuid
+import time
 
 
 class Agent:
@@ -49,21 +48,42 @@ class Agent:
 
         try:
             result = await self._execute_route(route_request)
-            result["request_id"] = request_id
-            result["response_time"] = time.time() - start_time
 
-            # Track metrics
-            self.telemetry.record_request(
-                {
-                    "request_id": request_id,
-                    "cost": result.get("cost", 0),
-                    "tokens_used": result.get("tokens_used", 0),
-                    "model": result.get("model"),
-                    "quality_score": result.get("quality_score", 0),
-                }
-            )
+            # Handle both dict and RouteResponse returns
+            if hasattr(result, "model_dump"):  # Pydantic model
+                # Update the response with timing info
+                result_dict = result.model_dump()
+                result_dict["request_id"] = request_id
+                result_dict["response_time"] = time.time() - start_time
 
-            return result
+                # Track metrics
+                self.telemetry.record_request(
+                    {
+                        "request_id": request_id,
+                        "cost": result.cost,
+                        "tokens_used": result.tokens_used,
+                        "model": result.model,
+                        "quality_score": result.quality_score,
+                    }
+                )
+
+                return result_dict
+            else:  # Regular dict
+                result["request_id"] = request_id
+                result["response_time"] = time.time() - start_time
+
+                # Track metrics
+                self.telemetry.record_request(
+                    {
+                        "request_id": request_id,
+                        "cost": result.get("cost", 0),
+                        "tokens_used": result.get("tokens_used", 0),
+                        "model": result.get("model"),
+                        "quality_score": result.get("quality_score", 0),
+                    }
+                )
+
+                return result
 
         except Exception as e:
             # Record error and re-raise
