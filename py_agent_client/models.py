@@ -5,11 +5,12 @@ This module defines Pydantic models for request/response data structures,
 configuration objects, and internal data representations.
 """
 
+import uuid
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class OptimizationMode(str, Enum):
@@ -68,14 +69,16 @@ class RouteRequest(BaseModel):
         default=None, description="User ID for personalization"
     )
 
-    @validator("prompt")
+    @field_validator("prompt")
+    @classmethod
     def prompt_not_empty(cls, v):
         """Validate that prompt is not empty."""
         if not v or not v.strip():
             raise ValueError("Prompt cannot be empty")
         return v.strip()
 
-    @validator("preferred_providers", "excluded_providers")
+    @field_validator("preferred_providers", "excluded_providers")
+    @classmethod
     def validate_provider_lists(cls, v):
         """Validate provider lists don't conflict."""
         if v is not None:
@@ -100,6 +103,10 @@ class RouteResponse(BaseModel):
         ..., description="Reason why this model/provider was selected"
     )
     response_time: float = Field(..., ge=0, description="Response time in seconds")
+    request_id: str = Field(
+        default_factory=lambda: str(uuid.uuid4()),
+        description="Unique identifier for this request",
+    )
     baseline_cost: Optional[float] = Field(
         default=None,
         ge=0,
@@ -108,7 +115,6 @@ class RouteResponse(BaseModel):
     session_id: Optional[str] = Field(
         default=None, description="Session ID used for this request"
     )
-    request_id: str = Field(..., description="Unique identifier for this request")
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
     @property
