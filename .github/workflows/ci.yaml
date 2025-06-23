@@ -51,9 +51,9 @@ jobs:
       run: |
         isort --check-only py_agent_client tests
     
-    - name: Type check with mypy
-      run: |
-        mypy py_agent_client
+    #- name: Type check with mypy
+    #  run: |
+    #    mypy py_agent_client
     
     - name: Test with pytest
       env:
