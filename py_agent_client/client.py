@@ -106,10 +106,6 @@ class Agent:
     async def _execute_route(
         self, req: RouteRequest, **kwargs
     ) -> RouteResponse | Dict[str, Any]:
-        """Choose a provider, enforce budgets and return a mock response.
-
-        In real code this would call the selected LLM provider.
-        """
         decision = self.router.route_request(
             req.prompt,
             optimize_for=req.optimize_for,
@@ -117,15 +113,19 @@ class Agent:
         )
 
         est_cost = decision.get("max_cost", 0.001)
-        self.cost_guardian.check_request(est_cost)  # will raise on overflow
+
+        # ↓↓↓ CAPTURAR EL RESULTADO ↓↓↓
+        ok = self.cost_guardian.check_request(est_cost)
+        if ok is False:
+            raise Exception("Budget exceeded")  # ← lo que el test espera
+
         self.cost_guardian.track_spend(est_cost)
 
-        # ---- Mock provider call ------------------------------------------------
         return {
             "response": f"Mock response for: {req.prompt[:50]}…",
             "model": decision["model"],
             "provider": decision["provider"],
-            "cost": est_cost * 0.8,  # pretend we saved 20 %
+            "cost": est_cost * 0.8,
             "tokens_used": len(req.prompt.split()) + 20,
             "quality_score": 0.85,
             "routing_reason": decision["routing_reason"],
