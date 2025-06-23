@@ -1,0 +1,53 @@
+# Include documentation
+include README.md
+include CHANGELOG.md
+include LICENSE
+include CONTRIBUTING.md
+include CODE_OF_CONDUCT.md
+
+# Include configuration files
+include pyproject.toml
+include setup.py
+include requirements*.txt
+include Makefile
+include .pre-commit-config.yaml
+
+# Include package data
+recursive-include py_agent_client *.py
+recursive-include py_agent_client *.json
+recursive-include py_agent_client *.yaml
+recursive-include py_agent_client *.yml
+
+# Include examples
+recursive-include examples *.py
+recursive-include examples *.md
+recursive-include examples *.json
+
+# Include tests (optional - usually excluded from distribution)
+# recursive-include tests *.py
+
+# Include docs source (for building docs)
+recursive-include docs *.md
+recursive-include docs *.yml
+recursive-include docs *.yaml
+recursive-include docs *.png
+recursive-include docs *.jpg
+recursive-include docs *.svg
+
+# Exclude unwanted files
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude *.pyd
+global-exclude __pycache__
+global-exclude .git*
+global-exclude .coverage
+global-exclude .pytest_cache
+global-exclude .mypy_cache
+global-exclude .tox
+global-exclude htmlcov
+global-exclude .env
+global-exclude .env.*
+global-exclude .vscode
+global-exclude .idea
+global-exclude *.log
+global-exclude .DS_Store
