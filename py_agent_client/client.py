@@ -1,83 +1,132 @@
-"""
-Telemetry collection and analytics utilities for py-agent-client.
-"""
+"""Main Agent class for py-agent-client."""
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Dict, List
+import time
+import uuid
+from typing import Any, Dict, Optional
+
+from py_agent_client.core.context_manager import ContextManager
+from py_agent_client.core.cost_guardian import CostGuardian
+from py_agent_client.core.router import Router
+from py_agent_client.core.telemetry import TelemetryCollector as Telemetry
+from py_agent_client.models import RouteRequest, RouteResponse
 
 
-class TelemetryCollector:
-    """Recolecta métricas de uso y desempeño de las rutas."""
+class Agent:
+    """Intelligent AI-API routing agent."""
 
-    # ------------------------------------------------------------------ #
-    # API pública
-    # ------------------------------------------------------------------ #
-    def __init__(self) -> None:
-        self.events: List[Dict[str, Any]] = []
-        self.stats: Dict[str, Any] = {
-            "total_requests": 0,
-            "total_cost": 0.0,
-            "total_tokens": 0,
-            "average_cost": 0.0,
-            "average_quality": 0.0,
-            "average_response_time": 0.0,
-            "cost_savings": 0.0,
-            "savings_percent": 0.0,
-        }
+    def __init__(
+        self, api_key: str, providers: Optional[Dict[str, str]] = None
+    ) -> None:
+        if not api_key:
+            raise ValueError("API key cannot be empty")
 
-    def record(self, *, event_type: str, payload: Dict[str, Any] | None = None) -> None:
-        """
-        Registra un evento genérico.
+        self.api_key: str = api_key
+        self.providers: Dict[str, str] = providers or {}
 
-        Los tests llaman a este método; internamente delega a `record_request`.
-        """
-        data = payload.copy() if payload else {}
-        data["event_type"] = event_type
-        self.record_request(data)
+        # Core components
+        self.cost_guardian = CostGuardian()
+        self.context_manager = ContextManager()
+        self.telemetry = Telemetry()
+        self.router = Router()
 
-    def get_stats(self) -> Dict[str, Any]:
-        """Devuelve una copia de las estadísticas agregadas."""
-        return self.stats.copy()
+    # --------------------------------------------------------------------- #
+    # Public API
+    # --------------------------------------------------------------------- #
+    async def route(
+        self,
+        prompt: str,
+        *,
+        context: Optional[Dict[str, Any]] = None,
+        optimize_for: str = "balanced",
+        max_cost: Optional[float] = None,
+        **kwargs,
+    ) -> RouteResponse:
+        """Route a prompt and return a `RouteResponse` instance."""
+        request_id = str(uuid.uuid4())
+        started_at = time.time()
 
-    def get_events(self) -> List[Dict[str, Any]]:
-        """Devuelve todos los eventos registrados hasta el momento."""
-        return self.events.copy()
+        # Build high-level request model
+        req = RouteRequest(
+            prompt=prompt,
+            context=context,
+            optimize_for=optimize_for,
+            max_cost=max_cost,
+        )
 
-    def clear_events(self) -> None:
-        """Limpia eventos y reinicia estadísticas."""
-        self.events.clear()
-        self.__init__()  # reinicia stats
+        try:
+            # Call the internal executor (can be monkey-patched in tests)
+            result = await self._execute_route(req, **kwargs)
 
-    # ------------------------------------------------------------------ #
-    # API interna / compatibilidad
-    # ------------------------------------------------------------------ #
-    def record_request(self, event_data: Dict[str, Any]) -> None:
-        """Registra un evento detallado y actualiza estadísticas."""
-        event_data["timestamp"] = datetime.utcnow().isoformat()
-        self.events.append(event_data)
-        self._update_stats(event_data)
+            # Ensure result is a RouteResponse
+            if isinstance(result, dict):
+                result = RouteResponse(**result)
 
-    # ------------------------------------------------------------------ #
-    # Helpers privados
-    # ------------------------------------------------------------------ #
-    def _update_stats(self, event_data: Dict[str, Any]) -> None:
-        """Actualiza contadores simples para consultas rápidas."""
-        self.stats["total_requests"] += 1
+            # Enrich with timing / ids
+            result.request_id = request_id
+            result.response_time = time.time() - started_at
 
-        if "cost" in event_data:
-            self.stats["total_cost"] += event_data["cost"]
-            self.stats["average_cost"] = (
-                self.stats["total_cost"] / self.stats["total_requests"]
+            # Telemetry
+            self.telemetry.record(
+                event_type="route",
+                payload={
+                    "request_id": request_id,
+                    "model": result.model,
+                    "provider": result.provider,
+                    "cost": result.cost,
+                    "tokens": result.tokens_used,
+                    "quality": result.quality_score,
+                },
             )
+            return result
 
-        if "tokens_used" in event_data:
-            self.stats["total_tokens"] += event_data["tokens_used"]
+        except Exception as exc:
+            # Telemetry for error paths
+            self.telemetry.record(
+                event_type="error",
+                payload={"request_id": request_id, "error": str(exc)},
+            )
+            raise
 
+    def get_usage_stats(self) -> Dict[str, Any]:
+        return self.telemetry.get_stats()
 
-# ---------------------------------------------------------------------- #
-# Alias para compatibilidad con importaciones que esperen `Telemetry`
-# ---------------------------------------------------------------------- #
-Telemetry = TelemetryCollector  # type: ignore
-__all__ = ["TelemetryCollector", "Telemetry"]
+    def set_budget(
+        self, *, daily: Optional[float] = None, monthly: Optional[float] = None
+    ) -> None:
+        self.cost_guardian.set_budget_limits(daily=daily, monthly=monthly)
+
+    def clear_context(self, session_id: Optional[str] = None) -> None:
+        self.context_manager.clear_context(session_id)
+
+    # --------------------------------------------------------------------- #
+    # Internals
+    # --------------------------------------------------------------------- #
+    async def _execute_route(
+        self, req: RouteRequest, **kwargs
+    ) -> RouteResponse | Dict[str, Any]:
+        """Choose a provider, enforce budgets and return a mock response.
+
+        In real code this would call the selected LLM provider.
+        """
+        decision = self.router.route_request(
+            req.prompt,
+            optimize_for=req.optimize_for,
+            max_cost=req.max_cost,
+        )
+
+        est_cost = decision.get("max_cost", 0.001)
+        self.cost_guardian.check_request(est_cost)  # will raise on overflow
+        self.cost_guardian.track_spend(est_cost)
+
+        # ---- Mock provider call ------------------------------------------------
+        return {
+            "response": f"Mock response for: {req.prompt[:50]}…",
+            "model": decision["model"],
+            "provider": decision["provider"],
+            "cost": est_cost * 0.8,  # pretend we saved 20 %
+            "tokens_used": len(req.prompt.split()) + 20,
+            "quality_score": 0.85,
+            "routing_reason": decision["routing_reason"],
+        }
