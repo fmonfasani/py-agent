@@ -23,7 +23,7 @@ class TelemetryCollector:
     def record(self, *, event_type: str, payload: Dict[str, Any] | None = None) -> None:
         data = payload or {}
         data["event_type"] = event_type
-        self.record_request(data)   
+        self.record_request(data)
 
     def record_request(self, event_data: Dict[str, Any]) -> None:
         event_data["timestamp"] = datetime.utcnow().isoformat()
