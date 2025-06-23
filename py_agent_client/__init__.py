@@ -20,3 +20,7 @@ Key Features:
     - Comprehensive usage analytics
     - Provider failover and redundancy
 """
+
+from .client import Agent
+
+__all__ = ["Agent"]
