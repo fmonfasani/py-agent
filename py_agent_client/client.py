@@ -1,4 +1,6 @@
-"""Main Agent class for py-agent-client"""
+"""Main Agent class for py-agent-client."""
+
+from __future__ import annotations
 
 import time
 import uuid
@@ -7,153 +9,118 @@ from typing import Any, Dict, Optional
 from py_agent_client.core.context_manager import ContextManager
 from py_agent_client.core.cost_guardian import CostGuardian
 from py_agent_client.core.router import Router
-from py_agent_client.core.telemetry import TelemetryCollector
+from py_agent_client.core.telemetry import Telemetry  # antes TelemetryCollector
+from py_agent_client.models import RouteRequest, RouteResponse
 
 
 class Agent:
-    """Intelligent AI API routing agent"""
+    """Intelligent AI-API routing agent."""
 
-    def __init__(self, api_key: str, providers: Optional[Dict[str, str]] = None):
-        """Initialize the Agent with API keys."""
+    def __init__(self, api_key: str, providers: Optional[Dict[str, str]] = None) -> None:
         if not api_key:
             raise ValueError("API key cannot be empty")
 
-        self.api_key = api_key
-        self.providers = providers or {}
+        self.api_key: str = api_key
+        self.providers: Dict[str, str] = providers or {}
 
-        # Initialize core components
+        # Core components
         self.cost_guardian = CostGuardian()
         self.context_manager = ContextManager()
-        self.telemetry = TelemetryCollector()
+        self.telemetry = Telemetry()
         self.router = Router()
 
+    # --------------------------------------------------------------------- #
+    # Public API
+    # --------------------------------------------------------------------- #
     async def route(
         self,
         prompt: str,
+        *,
         context: Optional[Dict[str, Any]] = None,
         optimize_for: str = "balanced",
         max_cost: Optional[float] = None,
         **kwargs,
-    ) -> Dict[str, Any]:
-        """Route request to optimal AI provider."""
-        start_time = time.time()
+    ) -> RouteResponse:
+        """Route a prompt and return a `RouteResponse` instance."""
         request_id = str(uuid.uuid4())
+        started_at = time.time()
 
-        # Create route request
-        route_request = {
-            "prompt": prompt,
-            "context": context,
-            "optimize_for": optimize_for,
-            "max_cost": max_cost,
-        }
-
-        try:
-            result = await self._execute_route(route_request)
-
-            # Handle both dict and RouteResponse returns
-            if hasattr(result, "model_dump"):  # Pydantic model
-                # Update the response with timing info
-                result_dict = result.model_dump()
-                result_dict["request_id"] = request_id
-                result_dict["response_time"] = time.time() - start_time
-
-                # Track metrics
-                self.telemetry.record_request(
-                    {
-                        "request_id": request_id,
-                        "cost": result.cost,
-                        "tokens_used": result.tokens_used,
-                        "model": result.model,
-                        "quality_score": result.quality_score,
-                    }
-                )
-
-                return result_dict
-            else:  # Regular dict
-                result["request_id"] = request_id
-                result["response_time"] = time.time() - start_time
-
-                # Track metrics
-                self.telemetry.record_request(
-                    {
-                        "request_id": request_id,
-                        "cost": result.get("cost", 0),
-                        "tokens_used": result.get("tokens_used", 0),
-                        "model": result.get("model"),
-                        "quality_score": result.get("quality_score", 0),
-                    }
-                )
-
-                return result
-
-        except Exception as e:
-            # Record error and re-raise
-            self.telemetry.record_request({"request_id": request_id, "error": str(e)})
-            raise
-
-    async def _execute_route(self, route_request: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute routing logic"""
-        prompt = route_request["prompt"]
-
-        # Get routing decision
-        routing_decision = self.router.route_request(
-            prompt,
-            optimize_for=route_request.get("optimize_for", "balanced"),
-            max_cost=route_request.get("max_cost"),
+        # Build high-level request model
+        req = RouteRequest(
+            prompt=prompt,
+            context=context,
+            optimize_for=optimize_for,
+            max_cost=max_cost,
         )
 
-        # Check budget
-        estimated_cost = routing_decision.get("max_cost", 0.001)
-        budget_check = self.cost_guardian.check_request(estimated_cost)
-        if budget_check is False:
-            raise Exception("Budget exceeded")
+        try:
+            # Call the internal executor (can be monkey-patched in tests)
+            result = await self._execute_route(req, **kwargs)
 
-        # Mock response (TODO: implement actual provider calls)
-        response = {
-            "response": f"Mock response for: {prompt[:50]}...",
-            "model": routing_decision["model"],
-            "provider": routing_decision["provider"],
-            "cost": estimated_cost * 0.8,  # Simulate cost optimization
-            "tokens_used": len(prompt.split()) + 20,
-            "quality_score": 0.85,
-            "routing_reason": routing_decision["routing_reason"],
-        }
+            # Ensure result is a RouteResponse
+            if isinstance(result, dict):
+                result = RouteResponse(**result)
 
-        # Track spending
-        self.cost_guardian.track_spend(response["cost"])
+            # Enrich with timing / ids
+            result.request_id = request_id
+            result.response_time = time.time() - started_at
 
-        return response
+            # Telemetry
+            self.telemetry.record(
+                event_type="route",
+                payload={
+                    "request_id": request_id,
+                    "model": result.model,
+                    "provider": result.provider,
+                    "cost": result.cost,
+                    "tokens": result.tokens_used,
+                    "quality": result.quality_score,
+                },
+            )
+            return result
+
+        except Exception as exc:
+            # Telemetry for error paths
+            self.telemetry.record(
+                event_type="error",
+                payload={"request_id": request_id, "error": str(exc)},
+            )
+            raise
 
     def get_usage_stats(self) -> Dict[str, Any]:
-        """Get usage statistics"""
         return self.telemetry.get_stats()
 
-    def set_budget(
-        self, daily: Optional[float] = None, monthly: Optional[float] = None
-    ):
-        """Set budget limits"""
-        if daily is not None:
-            self.cost_guardian.daily_budget = daily
-        if monthly is not None:
-            self.cost_guardian.monthly_budget = monthly
+    def set_budget(self, *, daily: Optional[float] = None, monthly: Optional[float] = None) -> None:
+        self.cost_guardian.set_budget_limits(daily=daily, monthly=monthly)
 
-    def clear_context(self, session_id: Optional[str] = None):
-        """Clear context manager"""
+    def clear_context(self, session_id: Optional[str] = None) -> None:
         self.context_manager.clear_context(session_id)
 
-    def get_analytics(self) -> Dict[str, Any]:
-        """Get analytics data"""
-        return {
-            "efficiency_score": 0.85,
-            "best_model_for_cost": "gpt-3.5-turbo",
-            "best_model_for_quality": "gpt-4",
-            "avg_response_time": 1.2,
-        }
+    # --------------------------------------------------------------------- #
+    # Internals
+    # --------------------------------------------------------------------- #
+    async def _execute_route(self, req: RouteRequest, **kwargs) -> RouteResponse | Dict[str, Any]:
+        """Choose a provider, enforce budgets and return a mock response.
 
-    def get_recommendations(self) -> list:
-        """Get optimization recommendations"""
-        return [
-            "Consider using gpt-3.5-turbo for simple queries",
-            "Enable context compression for better efficiency",
-            "Set budget alerts at 80% threshold",
-        ]
+        In real code this would call the selected LLM provider.
+        """
+        decision = self.router.route_request(
+            req.prompt,
+            optimize_for=req.optimize_for,
+            max_cost=req.max_cost,
+        )
+
+        est_cost = decision.get("max_cost", 0.001)
+        self.cost_guardian.check_request(est_cost)  # will raise on overflow
+        self.cost_guardian.track_spend(est_cost)
+
+        # ---- Mock provider call ------------------------------------------------
+        return {
+            "response": f"Mock response for: {req.prompt[:50]}…",
+            "model": decision["model"],
+            "provider": decision["provider"],
+            "cost": est_cost * 0.8,  # pretend we saved 20 %
+            "tokens_used": len(req.prompt.split()) + 20,
+            "quality_score": 0.85,
+            "routing_reason": decision["routing_reason"],
+        }
