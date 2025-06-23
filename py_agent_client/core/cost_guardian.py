@@ -1,6 +1,6 @@
 """Cost management and budget controls"""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List
 
 
@@ -9,12 +9,15 @@ class BudgetExceededError(Exception):
 
     def __init__(
         self,
-        message: str,
+        message: str = None,
         budget_type: str = "daily",
         current_spend: float = 0.0,
         budget_limit: float = 0.0,
         requested_cost: float = 0.0,
     ):
+        # Handle both positional and keyword-only calls
+        if message is None:
+            message = f"{budget_type.title()} budget exceeded"
         super().__init__(message)
         self.budget_type = budget_type
         self.current_spend = current_spend
@@ -35,6 +38,11 @@ class CostGuardian:
 
     def check_request(self, estimated_cost: float) -> bool:
         """Check if request is within budget"""
+        # Auto-reset daily budget if new day
+        now = datetime.now()
+        if (now - self.last_daily_reset).days >= 1:
+            self.reset_daily_budget()
+
         if self.current_daily_spend + estimated_cost > self.daily_budget:
             raise BudgetExceededError(
                 "Daily budget exceeded",

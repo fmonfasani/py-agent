@@ -83,7 +83,9 @@ class Agent:
 
         # Check budget
         estimated_cost = routing_decision.get("max_cost", 0.001)
-        self.cost_guardian.check_request(estimated_cost)
+        budget_check = self.cost_guardian.check_request(estimated_cost)
+        if budget_check is False:
+            raise Exception("Budget exceeded")
 
         # Mock response (TODO: implement actual provider calls)
         response = {

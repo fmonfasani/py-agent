@@ -102,7 +102,9 @@ class RouteResponse(BaseModel):
     routing_reason: str = Field(
         ..., description="Reason why this model/provider was selected"
     )
-    response_time: float = Field(..., ge=0, description="Response time in seconds")
+    response_time: float = Field(
+        default=0.0, ge=0, description="Response time in seconds"
+    )
     request_id: str = Field(
         default_factory=lambda: str(uuid.uuid4()),
         description="Unique identifier for this request",
