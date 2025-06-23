@@ -20,22 +20,23 @@ class TelemetryCollector:
             "savings_percent": 0.0,
         }
 
+    def record(self, *, event_type: str, payload: Dict[str, Any] | None = None) -> None:
+        data = payload or {}
+        data["event_type"] = event_type
+        self.record_request(data)   
+
     def record_request(self, event_data: Dict[str, Any]) -> None:
-        """Record a request event"""
         event_data["timestamp"] = datetime.utcnow().isoformat()
         self.events.append(event_data)
         self._update_stats(event_data)
 
     def get_stats(self) -> Dict[str, Any]:
-        """Get current usage statistics"""
         return self.stats.copy()
 
     def get_events(self) -> List[Dict[str, Any]]:
-        """Get all recorded events"""
         return self.events.copy()
 
     def clear_events(self) -> None:
-        """Clear all recorded events"""
         self.events.clear()
         self.stats = {
             "total_requests": 0,
@@ -49,7 +50,6 @@ class TelemetryCollector:
         }
 
     def _update_stats(self, event_data: Dict[str, Any]) -> None:
-        """Update internal statistics"""
         self.stats["total_requests"] += 1
 
         if "cost" in event_data:
