@@ -68,7 +68,9 @@ class TelemetryCollector:
 
         if "cost" in event_data:
             self.stats["total_cost"] += event_data["cost"]
-            self.stats["average_cost"] = self.stats["total_cost"] / self.stats["total_requests"]
+            self.stats["average_cost"] = (
+                self.stats["total_cost"] / self.stats["total_requests"]
+            )
 
         if "tokens_used" in event_data:
             self.stats["total_tokens"] += event_data["tokens_used"]
