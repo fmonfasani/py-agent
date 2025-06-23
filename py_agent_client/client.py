@@ -16,7 +16,9 @@ from py_agent_client.models import RouteRequest, RouteResponse
 class Agent:
     """Intelligent AI-API routing agent."""
 
-    def __init__(self, api_key: str, providers: Optional[Dict[str, str]] = None) -> None:
+    def __init__(
+        self, api_key: str, providers: Optional[Dict[str, str]] = None
+    ) -> None:
         if not api_key:
             raise ValueError("API key cannot be empty")
 
@@ -90,7 +92,9 @@ class Agent:
     def get_usage_stats(self) -> Dict[str, Any]:
         return self.telemetry.get_stats()
 
-    def set_budget(self, *, daily: Optional[float] = None, monthly: Optional[float] = None) -> None:
+    def set_budget(
+        self, *, daily: Optional[float] = None, monthly: Optional[float] = None
+    ) -> None:
         self.cost_guardian.set_budget_limits(daily=daily, monthly=monthly)
 
     def clear_context(self, session_id: Optional[str] = None) -> None:
@@ -99,7 +103,9 @@ class Agent:
     # --------------------------------------------------------------------- #
     # Internals
     # --------------------------------------------------------------------- #
-    async def _execute_route(self, req: RouteRequest, **kwargs) -> RouteResponse | Dict[str, Any]:
+    async def _execute_route(
+        self, req: RouteRequest, **kwargs
+    ) -> RouteResponse | Dict[str, Any]:
         """Choose a provider, enforce budgets and return a mock response.
 
         In real code this would call the selected LLM provider.
